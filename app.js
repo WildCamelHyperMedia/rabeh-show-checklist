@@ -75,6 +75,11 @@
     em2: "Emcee 2", rec: "Recording", fin: "Readiness", iss: "Issues", post: "Post-show"
   };
 
+  // The final status as the sticky bar repeats it (it has to fit under the date on a phone); an option added to
+  // the template later falls back to its label. Until one is chosen the bar says so, as a to-do tag.
+  const SHORT_STATUS = { ready: "Ready", ready_issue: "Ready · issue", not_ready: "Not ready" };
+  const NO_STATUS = "No status";
+
   // `text` must fit the bar of a 320 px phone next to the date (19 characters); `extra` shows from 620 px.
   const PILL = {
     local: { text: "On this device only", extra: "", tone: "mute" },
@@ -427,7 +432,7 @@
   const dom = {};
   [
     "banner", "banner-notes", "banner-connect", "print-date", "date-note", "date-text", "date-input", "prev-week", "next-week",
-    "this-week", "hdr-fields", "overall-num", "overall-meter", "overall-bar", "bar", "bar-date", "bar-count",
+    "this-week", "hdr-fields", "overall", "overall-num", "overall-meter", "overall-bar", "overall-secs", "bar", "bar-date", "bar-status", "bar-count",
     "sync-pill", "pill-text", "pill-extra", "chips", "open-history", "open-sheet", "open-settings", "print",
     "dlg-connect", "connect-form", "connect-title", "conn-status", "conn-text", "conn-build", "in-code", "in-device", "adv",
     "in-endpoint", "connect-msg", "endpoint-msg", "home-hint", "btn-disconnect", "btn-erase", "btn-connect",
@@ -438,7 +443,8 @@
 
   const fields = Object.create(null); // fieldId -> { def, commit(final), update() }
   const sectionsUI = [];              // { key, node, count, chip, chipCount, slots }
-  const issueSlots = [];              // { slot, node, group }
+  const issueSlots = [];              // { slot, node, group, tag }
+  const statusTags = Object.create(null); // choice field id -> the tag in the head of its section
   const rosterLabels = [];            // texts that depend on the crew names: { label, fallback, apply(text) }
   let addIssueWrap = null;
   let issueReveal = 1;                // issue slots opened with "+ Add another issue" (per show)
@@ -579,14 +585,18 @@
     });
   }
 
+  // Returns true when the time shown was edited by hand (the stylesheet then marks it "Edited", in amber).
   function timeNote(shown, autoNode, pvNode, def, value) {
     pvNode.textContent = core.to12h(shown);
     const edited = core.isEdited(def, value);
     autoNode.textContent = edited ? "Auto " + core.to12h(value.a) : "";
     autoNode.hidden = !edited;
+    return edited;
   }
 
-  function buildCheck(def) {
+  // opts.block: the crew block this check belongs to; it is marked while the box is ticked.
+  function buildCheck(def, opts) {
+    const block = opts && opts.block;
     const box = el("input", { type: "checkbox", id: domId(def) });
     const text = rosterLabel(el("span", { class: "lbl", id: domId(def, "l") }), def.label, def.fallback);
     const cap = el("span", { class: def.timeLabel ? "cap mono" : "cap sr-only", id: domId(def, "c"), text: def.timeLabel || "Time" });
@@ -597,9 +607,10 @@
     });
     const pv = el("span", { class: "pv" });
     const auto = el("span", { class: "auto mono", hidden: true });
-    const stamp = el("div", { class: "stamp" }, [cap, time, pv, auto]);
+    const stamp = el("div", { class: "stamp" }, [cap, time, pv]);
     const tick = el("label", { class: "tick", for: domId(def) }, [box, el("span", { class: "box", "aria-hidden": "true" }), text]);
-    const row = el("div", { class: "row check" }, [tick, stamp]);
+    // The "Edited · Auto 7:13 PM" note takes a line of its own under the row: the time box is too narrow for it.
+    const row = el("div", { class: "row check" }, [tick, stamp, auto]);
 
     box.addEventListener("change", () => act({ type: "toggle", id: def.id, on: box.checked }));
     // The strip beside the label (where the time will appear) ticks too; it never unticks.
@@ -619,12 +630,13 @@
         const on = value.v === 1;
         box.checked = on;
         row.classList.toggle("on", on);
+        if (block) block.classList.toggle("on", on);
         if (!def.timeAlways) {
           stamp.classList.toggle("off", !on);
           time.disabled = !on;
         }
         setTimeInput(time, value.t, force);
-        timeNote(value.t, auto, pv, def, value);
+        stamp.classList.toggle("edited", timeNote(value.t, auto, pv, def, value));
       }
     };
     return row;
@@ -654,7 +666,7 @@
       update(force) {
         const value = core.valueOf(def, show.state);
         setTimeInput(input, value.v, force);
-        timeNote(value.v, auto, pv, def, value);
+        stamp.classList.toggle("edited", timeNote(value.v, auto, pv, def, value));
       }
     };
     return row;
@@ -717,7 +729,8 @@
     const time = el("input", { type: "time", class: "time empty", id: domId(def, "t") });
     const pv = el("span", { class: "pv" });
     const auto = el("span", { class: "auto mono", hidden: true });
-    const timeRow = el("div", { class: "row time" }, [timeLabel, el("div", { class: "stamp" }, [el("div", { class: "ctl" }, [time, pv]), auto])]);
+    const stamp = el("div", { class: "stamp" }, [el("div", { class: "ctl" }, [time, pv]), auto]);
+    const timeRow = el("div", { class: "row time" }, [timeLabel, stamp]);
     bindTimeInput(time, def.id);
 
     fields[def.id] = {
@@ -729,15 +742,36 @@
       update(force) {
         const value = core.valueOf(def, show.state);
         buttons.forEach((b) => b.node.setAttribute("aria-pressed", b.id === value.v ? "true" : "false"));
+        showStatus(def, value.v);
         setTimeInput(time, value.t, force);
-        timeNote(value.t, auto, pv, def, value);
+        stamp.classList.toggle("edited", timeNote(value.t, auto, pv, def, value));
       }
     };
     return el("div", { class: "choice wide" }, [legend, group, timeRow]);
   }
 
+  /*
+   * The chosen status is repeated, in its colour, where it can be seen without scrolling to the buttons: in the
+   * head of its section (the full wording) and, for the final status, in the sticky bar (the short wording).
+   * Not chosen yet is said in both places too, as a to-do tag: with every check ticked the page is green from top
+   * to bottom, and the decision that is still missing must not be the one thing nobody sees.
+   */
+  function showStatus(def, chosen) {
+    const option = (def.options || []).filter((o) => o.id === chosen)[0];
+    const tone = option ? option.tone : "mute";
+    const head = statusTags[def.id];
+    if (head) {
+      head.textContent = option ? option.label : def.label + " — not set";
+      head.dataset.tone = tone;
+    }
+    if (def.id !== statusFieldId) return;
+    dom.barStatus.textContent = option ? own(SHORT_STATUS, option.id) || option.label : NO_STATUS;
+    dom.barStatus.dataset.tone = tone;
+    dom.barStatus.hidden = false;
+  }
+
   function buildField(def, opts) {
-    if (def.type === "check") return buildCheck(def);
+    if (def.type === "check") return buildCheck(def, opts);
     if (def.type === "time") return buildTime(def, opts);
     if (def.type === "choice") return buildChoice(def);
     return buildText(def, opts);
@@ -748,16 +782,17 @@
     const roleId = "role-" + group.role;
     const block = el("div", { class: "member", role: "group", "aria-labelledby": roleId },
       [rosterLabel(el("p", { class: "mono role", id: roleId }), group.label, group.fallback)]);
-    group.rows.forEach((row) => block.appendChild(buildField(defs[row.id], { quiet: true })));
+    group.rows.forEach((row) => block.appendChild(buildField(defs[row.id], { quiet: true, block: block })));
     return block;
   }
 
   function buildIssue(group) {
     const inner = el("div", { class: "rows" });
     group.rows.forEach((row) => inner.appendChild(buildField(defs[row.id])));
+    const tag = el("span", { class: "tag", hidden: true }); // "Open" / "Resolved", see renderIssues
     const node = el("div", { class: "issue wide", role: "group", "aria-label": group.label },
-      [rosterLabel(el("h3", { class: "sub" }), group.label, group.fallback), inner]);
-    issueSlots.push({ slot: group.slot, node: node, group: group });
+      [el("div", { class: "issue-head" }, [rosterLabel(el("h3", { class: "sub" }), group.label, group.fallback), tag]), inner]);
+    issueSlots.push({ slot: group.slot, node: node, group: group, tag: tag });
     return node;
   }
 
@@ -793,10 +828,13 @@
     }
 
     const count = el("span", { class: "mono sec-count" });
+    const choice = (section.rows || []).filter((row) => row.type === "choice")[0];
+    if (choice) statusTags[choice.id] = el("p", { class: "tag sec-status", "data-tone": "mute" });
     const node = el("section", { class: "card", id: "sec-" + section.key, "aria-labelledby": "h-" + section.key }, [
       el("header", { class: "card-head" }, [
         el("div", { class: "label" }, [el("span", { class: "mono", text: "( " + section.n + " / " + total + " )" }), count]),
-        el("h2", { class: "head chrome", id: "h-" + section.key, text: section.title })
+        el("h2", { class: "head chrome", id: "h-" + section.key, text: section.title }),
+        choice ? statusTags[choice.id] : null
       ]),
       rows
     ]);
@@ -817,6 +855,7 @@
     return node;
   }
 
+  let allChip = null;
   let allChipCount = null;
 
   function buildPage() {
@@ -831,9 +870,9 @@
 
     // On a phone the overall count rides at the head of the chips (the bar's top line has no room for it).
     allChipCount = el("span", { class: "c" });
-    const all = el("button", { type: "button", class: "chip all", "aria-label": "Back to the top" }, [el("span", { class: "t", text: "All" }), allChipCount]);
-    all.addEventListener("click", () => scrollToNode($("top")));
-    dom.chips.appendChild(all);
+    allChip = el("button", { type: "button", class: "chip all", "aria-label": "Back to the top" }, [el("span", { class: "t", text: "All" }), allChipCount]);
+    allChip.addEventListener("click", () => scrollToNode($("top")));
+    dom.chips.appendChild(allChip);
     sectionsUI.forEach((s) => dom.chips.appendChild(s.chip));
   }
 
@@ -851,6 +890,15 @@
     });
   }
 
+  /*
+   * The colour language of the stylesheet, as classes on whatever shows a count: none = nothing yet (an
+   * outline), .part = begun (amber), .done = complete (green); .flag = an open issue (red).
+   */
+  function markCount(node, done, total) {
+    node.classList.toggle("part", done > 0 && done < total);
+    node.classList.toggle("done", total > 0 && done === total);
+  }
+
   function renderProgress() {
     const p = core.progress(template, show.state);
     dom.overallNum.textContent = p.done + " / " + p.total;
@@ -861,18 +909,25 @@
     dom.barCount.appendChild(el("b", { text: String(p.done) }));
     dom.barCount.appendChild(document.createTextNode(" / " + p.total));
     allChipCount.textContent = p.done + "/" + p.total;
+    [dom.overall, dom.barCount, allChip].forEach((node) => markCount(node, p.done, p.total));
 
+    let complete = 0; // of the sections that have checks
+    let counted = 0;
     sectionsUI.forEach((s) => {
       const sp = own(p.sections, s.key) || { done: 0, total: 0 };
-      let headText = sp.done + " / " + sp.total;
-      let chipText = sp.done + "/" + sp.total;
       let done = sp.total > 0 && sp.done === sp.total;
+      let headText = sp.done + " / " + sp.total + (done ? " · done" : "");
+      let chipText = sp.done + "/" + sp.total;
       let flag = false;
       let spoken = sp.done + " of " + sp.total + " done";
-      if (sp.total === 0) {
-        // The issues section has nothing to tick: show how many are logged and whether any is still open.
+      if (sp.total > 0) {
+        counted += 1;
+        if (done) complete += 1;
+      } else {
+        // The issues section has nothing to tick: show how many are logged and whether any is still open
+        // (red while one is; green once every logged issue has its "resolved at" time).
         const tally = issueTally();
-        done = false;
+        done = tally.logged > 0 && tally.open === 0;
         flag = tally.open > 0;
         headText = s.slots ? (tally.logged ? tally.logged + " logged · " + tally.open + " open" : "None logged") : "";
         chipText = s.slots && tally.logged ? String(tally.logged) : "";
@@ -881,23 +936,31 @@
       s.count.textContent = headText;
       s.chipCount.textContent = chipText;
       s.chipCount.hidden = chipText === "";
-      s.chip.classList.toggle("done", done);
-      s.chip.classList.toggle("flag", flag);
-      s.node.classList.toggle("done", done);
-      s.node.classList.toggle("flag", flag);
+      [s.chip, s.node].forEach((node) => {
+        node.classList.toggle("part", sp.done > 0 && !done);
+        node.classList.toggle("done", done);
+        node.classList.toggle("flag", flag);
+      });
       s.chip.setAttribute("aria-label", "Section " + s.title + (spoken ? ", " + spoken : ""));
     });
+    dom.overallSecs.textContent = complete + " / " + counted;
   }
 
-  // An issue counts as open until its "resolved at" time is filled in (ids end in .issue / .resolved_at).
+  // "" while nothing is written; then the issue is "open" until its "resolved at" time is filled in
+  // (ids end in .issue / .resolved_at).
+  function issueState(s) {
+    const issue = s.group.rows.filter((row) => /\.issue$/.test(row.id))[0];
+    const resolved = s.group.rows.filter((row) => /\.resolved_at$/.test(row.id))[0];
+    if (!issue || core.valueOf(issue, show.state).v.trim() === "") return "";
+    return !resolved || core.valueOf(resolved, show.state).v === "" ? "open" : "resolved";
+  }
+
   function issueTally() {
     const tally = { logged: 0, open: 0 };
     issueSlots.forEach((s) => {
-      const issue = s.group.rows.filter((row) => /\.issue$/.test(row.id))[0];
-      const resolved = s.group.rows.filter((row) => /\.resolved_at$/.test(row.id))[0];
-      if (!issue || core.valueOf(issue, show.state).v.trim() === "") return;
-      tally.logged += 1;
-      if (!resolved || core.valueOf(resolved, show.state).v === "") tally.open += 1;
+      const state = issueState(s);
+      if (state) tally.logged += 1;
+      if (state === "open") tally.open += 1;
     });
     return tally;
   }
@@ -910,6 +973,13 @@
     });
     const visible = Math.max(1, issueReveal, withContent);
     issueSlots.forEach((s) => {
+      // Red "Open" tag and edge while it is open, green "Resolved" once it has its time.
+      const state = issueState(s);
+      s.node.classList.toggle("open", state === "open");
+      s.node.classList.toggle("resolved", state === "resolved");
+      s.tag.textContent = state === "open" ? "Open" : state === "resolved" ? "Resolved" : "";
+      s.tag.dataset.tone = state === "open" ? "bad" : "good";
+      s.tag.hidden = !state;
       const hide = s.slot > visible;
       if (s.node.hidden && !hide) {
         s.node.hidden = false;

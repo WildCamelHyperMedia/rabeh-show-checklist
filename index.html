@@ -56,7 +56,7 @@
       <div class="titles">
         <p class="mono eyebrow">( Weekly show checklist )</p>
         <h1 class="head chrome">RABEH</h1>
-        <p class="mono light tagline">Live production · Recording · Post-show</p>
+        <p class="mono light tagline"><span>Live production ·</span> <span>Recording ·</span> <span>Post-show</span></p>
       </div>
     </div>
 
@@ -76,7 +76,8 @@
 
     <div class="hdr-fields" id="hdr-fields"></div>
 
-    <div class="overall">
+    <!-- app.js marks it .part once a check is ticked and .done when all are. -->
+    <div class="overall" id="overall">
       <div class="figures">
         <span class="head num" id="overall-num">0 / 0</span>
         <span class="mono">Checks done</span>
@@ -84,6 +85,14 @@
       <div class="meter" id="overall-meter" role="progressbar" aria-label="Checks done" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
         <span id="overall-bar"></span>
       </div>
+      <p class="secs"><b class="head" id="overall-secs">0 / 0</b> <span class="mono">Sections complete</span></p>
+      <!-- The colour language of the whole page: each colour always comes with its mark. -->
+      <ul class="legend" aria-label="Colour key">
+        <li><i class="key done" aria-hidden="true"></i>Done</li>
+        <li><i class="key part" aria-hidden="true"></i>In progress</li>
+        <li><i class="key" aria-hidden="true"></i>To do</li>
+        <li><i class="key flag" aria-hidden="true"></i>Problem</li>
+      </ul>
     </div>
   </div>
 </header>
@@ -93,7 +102,11 @@
     <div class="bar-top">
       <a class="brand" href="#top" aria-label="Back to the top">
         <img src="img/camel.webp" alt="" width="394" height="560">
-        <span class="mono"><span class="show-name">RABEH · </span><span id="bar-date"></span><span class="off-note"> · not this week</span></span>
+        <span class="brand-text">
+          <span class="mono"><span class="show-name">RABEH · </span><span id="bar-date"></span><span class="off-note"> · not this week</span></span>
+          <!-- The final status in its colour, or "No status" as a to-do tag until one is chosen (written and shown by app.js). -->
+          <span class="tag" id="bar-status" data-tone="mute" hidden></span>
+        </span>
       </a>
       <span class="count" id="bar-count" aria-hidden="true"></span>
       <button class="pill" id="sync-pill" type="button" data-tone="mute">

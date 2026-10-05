@@ -15,6 +15,15 @@ The producer's checklist for the weekly RABEH live show, by Wild Camel HyperMedi
 - **A stray tap** that unticks a row or replaces a time shows **Undo** at the bottom of the screen for a few seconds.
 - **Print / Save PDF** at the bottom of the page gives a paper copy of the finished checklist.
 
+## What the colours mean
+
+- **Green — done.** A ticked row, a complete section, a crew member who is present, a resolved issue, *Ready for live*, *Saved to sheet*.
+- **Amber — in progress, or have a look.** A section that is begun, a time that was changed by hand (*Edited*), *Ready with outstanding issue*, *Saving…* or *Offline · on device*, a show that is not this week's.
+- **Red — a problem.** An open issue, *Not ready*, *Sheet not saving*, *Access code needed*.
+- **Grey outline — to do.** Nothing there yet. *No status* under the date at the top means the final status has not been chosen — also when every row is ticked.
+
+A colour never stands alone: it comes with a tick, a half-filled square, an exclamation mark or a word, so the page reads the same in bright light and on paper. In the bar of sections the white outline marks the section that is on screen. The key is repeated under the count at the top of the page.
+
 ## First time on a phone or laptop
 
 1. **On an iPhone or iPad, do this first:** open the page in Safari, tap the share button and choose **Add to Home Screen**. Then always open the checklist from that icon. Safari itself forgets the access code, the offline copy and any changes not yet sent after a week without a visit; the Home Screen app does not. The Home Screen app keeps its own data, so connect (step 2) from the icon, not in Safari.
