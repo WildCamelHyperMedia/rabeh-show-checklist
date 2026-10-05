@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The page needs nothing but its own files, the two Google Fonts hosts and the Apps Script web app (script.google.com
+     answers a POST with a redirect to script.googleusercontent.com; localhost is the dev mock). No inline script or style. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com http://localhost:* http://127.0.0.1:*; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RABEH — Weekly Show Checklist · Wild Camel</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0A0A0C">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RABEH">
+<link rel="icon" href="img/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cousine&family=Roboto+Condensed:wght@700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="config.js" defer></script>
+<script src="checklist.js" defer></script>
+<script src="core.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<a class="skip" href="#sections">Skip to the checklist</a>
+
+<!-- Lines written by app.js: not connected, the Sheet is not saving, the browser is not storing, the clock is wrong. -->
+<div class="banner" id="banner" hidden>
+  <div class="notes" id="banner-notes"></div>
+  <button class="btn small" id="banner-connect" type="button">Connect</button>
+</div>
+
+<header class="cover" id="top">
+  <img class="wire" src="img/camel-wire.webp" alt="" width="600" height="906" aria-hidden="true">
+  <div class="wrap">
+    <div class="topline">
+      <span class="mono">Wild Camel HyperMedia</span>
+      <span class="mono">Dubai · UAE</span>
+    </div>
+
+    <!-- Heading of the printed / PDF copy; the screen shows the lockup below instead. -->
+    <div class="print-head">
+      <p class="print-title">RABEH — Weekly Show Checklist</p>
+      <p class="print-date" id="print-date"></p>
+    </div>
+
+    <div class="lockup">
+      <img class="emblem" src="img/camel.webp" alt="Wild Camel" width="394" height="560">
+      <div class="titles">
+        <p class="mono eyebrow">( Weekly show checklist )</p>
+        <h1 class="head chrome">RABEH</h1>
+        <p class="mono light tagline">Live production · Recording · Post-show</p>
+      </div>
+    </div>
+
+    <section class="showdate" aria-labelledby="date-label">
+      <p class="mono"><span id="date-label">Show date</span><span class="note" id="date-note"></span></p>
+      <div class="date-row">
+        <button class="step" id="prev-week" type="button" aria-label="Previous week"><span aria-hidden="true">‹</span></button>
+        <div class="date-pick">
+          <span class="head date-text" id="date-text" aria-hidden="true"></span>
+          <span class="caret" aria-hidden="true"></span>
+          <input type="date" id="date-input" aria-label="Show date — pick any date">
+        </div>
+        <button class="step" id="next-week" type="button" aria-label="Next week"><span aria-hidden="true">›</span></button>
+        <button class="btn solid" id="this-week" type="button" hidden>This week's show</button>
+      </div>
+    </section>
+
+    <div class="hdr-fields" id="hdr-fields"></div>
+
+    <div class="overall">
+      <div class="figures">
+        <span class="head num" id="overall-num">0 / 0</span>
+        <span class="mono">Checks done</span>
+      </div>
+      <div class="meter" id="overall-meter" role="progressbar" aria-label="Checks done" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+        <span id="overall-bar"></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="bar" id="bar" aria-label="Sections and sync status">
+  <div class="wrap">
+    <div class="bar-top">
+      <a class="brand" href="#top" aria-label="Back to the top">
+        <img src="img/camel.webp" alt="" width="394" height="560">
+        <span class="mono"><span class="show-name">RABEH · </span><span id="bar-date"></span><span class="off-note"> · not this week</span></span>
+      </a>
+      <span class="count" id="bar-count" aria-hidden="true"></span>
+      <button class="pill" id="sync-pill" type="button" data-tone="mute">
+        <span class="dot" aria-hidden="true"></span><span id="pill-text">On this device only</span><span class="extra" id="pill-extra"></span>
+      </button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+</nav>
+
+<main class="wrap" id="sections">
+  <noscript><p class="fatal">This checklist needs JavaScript. Turn it on in the browser settings and reload the page.</p></noscript>
+</main>
+
+<footer class="foot wrap">
+  <div class="foot-line">
+    <span class="mono">Wild Camel HyperMedia</span>
+    <span class="mono">Dubai — UAE</span>
+  </div>
+  <div class="foot-acts">
+    <button class="btn" id="open-history" type="button">History</button>
+    <a class="btn" id="open-sheet" target="_blank" rel="noopener noreferrer" hidden>Open Google Sheet</a>
+    <button class="btn" id="open-settings" type="button">Settings</button>
+    <button class="btn" id="print" type="button">Print / Save PDF</button>
+  </div>
+</footer>
+
+<dialog class="dlg" id="dlg-connect" aria-labelledby="connect-title">
+  <form id="connect-form" novalidate>
+    <header class="dlg-head">
+      <div>
+        <p class="mono">( Google Sheets )</p>
+        <h2 class="head" id="connect-title">Connect</h2>
+      </div>
+      <button class="x" type="button" data-close aria-label="Close">×</button>
+    </header>
+    <div class="dlg-body">
+      <p class="conn" id="conn-status" data-tone="mute"><span class="dot" aria-hidden="true"></span><span id="conn-text">Not connected</span></p>
+      <p class="hint" id="conn-build" hidden></p>
+      <div class="fld">
+        <label class="mono" for="in-code">Access code</label>
+        <input class="in" id="in-code" type="text" maxlength="80" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-describedby="connect-msg">
+        <p class="msg" id="connect-msg" role="alert"></p>
+        <p class="hint">The producers' code, from the Settings tab of the Sheet.</p>
+        <p class="hint" id="home-hint" hidden>iPhone / iPad: add this page to the Home Screen first and connect from that icon. Safari forgets the code after a week without a visit; the Home Screen app keeps it, and does not share what was entered in Safari.</p>
+      </div>
+      <div class="fld">
+        <label class="mono" for="in-device">This device</label>
+        <input class="in" id="in-device" type="text" maxlength="40" autocomplete="off" spellcheck="false">
+        <p class="hint">Written next to every change in the Sheet. Name the device, not a person.</p>
+      </div>
+      <details class="adv" id="adv">
+        <summary class="mono">Advanced</summary>
+        <div class="fld">
+          <label class="mono" for="in-endpoint">Web app URL</label>
+          <input class="in" id="in-endpoint" type="url" inputmode="url" maxlength="300" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" aria-describedby="endpoint-msg">
+          <p class="msg" id="endpoint-msg" role="alert"></p>
+          <p class="hint">The Apps Script web-app address of the production Sheet.</p>
+        </div>
+      </details>
+    </div>
+    <footer class="dlg-foot">
+      <button class="btn" id="btn-disconnect" type="button" hidden>Disconnect</button>
+      <button class="btn" id="btn-erase" type="button" hidden>Disconnect + erase device</button>
+      <button class="btn solid" id="btn-connect" type="submit">Connect</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="dlg" id="dlg-history" aria-labelledby="history-title">
+  <header class="dlg-head">
+    <div>
+      <p class="mono">( All shows )</p>
+      <h2 class="head" id="history-title">History</h2>
+    </div>
+    <button class="x" type="button" data-close aria-label="Close">×</button>
+  </header>
+  <div class="dlg-body">
+    <p class="hint" id="history-note"></p>
+    <ul class="shows" id="history-list"></ul>
+  </div>
+</dialog>
+
+<div class="sr-only" id="live" role="status" aria-live="polite"></div>
+<div class="toasts" id="toasts"></div>
+
+</body>
+</html>
