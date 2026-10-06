@@ -42,6 +42,7 @@
   const BUSY_RETRY_MS = 3000;       // the Sheet answered "busy"
   const BACKOFF_MS = [5000, 15000, 30000, 60000];
   const REQUEST_TIMEOUT_MS = 45000; // a save may wait 20 s for the Sheet's lock before it even starts
+  const DRIVE_HICCUP_RETRY_MS = [1500, 3000]; // Google now and then answers one web-app request with its "unable to open the file" page (HTTP 404); the next request goes through
   const KEEPALIVE_MAX_BYTES = 60000; // browsers allow 64 KiB of keepalive bodies in flight at a time; stay below
   const MAX_SAVE_TRIES = 3;         // failed saves of a show that is not open, before it waits for the next reconnect
   const HOLD_RELEASE_MS = 5000;     // an auto stamp held back while its text is typed is released after this pause
@@ -1567,23 +1568,35 @@
       }
     }
     let timer = 0;
-    if (typeof AbortController === "function") {
-      const aborter = new AbortController();
-      init.signal = aborter.signal;
-      timer = setTimeout(() => aborter.abort(), REQUEST_TIMEOUT_MS);
-    }
     const over = () => {
       clearTimeout(timer);
       sync.keptBytes -= kept;
       kept = 0;
     };
-    return fetch(url, init)
-      .then((response) => {
-        if (!response.ok) throw notTheSheet("the web app address answered with an error page (HTTP " + response.status + ")");
-        return response.json().then((data) => data, () => {
-          throw notTheSheet("the web app address answered with a page instead of data — check that it is deployed for “Anyone”");
+    let hiccups = 0;
+    const attempt = () => {
+      clearTimeout(timer);
+      if (typeof AbortController === "function") {
+        const aborter = new AbortController();
+        init.signal = aborter.signal;
+        timer = setTimeout(() => aborter.abort(), REQUEST_TIMEOUT_MS);
+      }
+      return fetch(url, init)
+        .then((response) => {
+          if (!response.ok) {
+            // Google's intermittent "Sorry, unable to open the file" page: ask again (twice) before telling anyone.
+            // Not for a keepalive request: the page is going away and cannot wait.
+            if (response.status === 404 && hiccups < DRIVE_HICCUP_RETRY_MS.length && !init.keepalive) {
+              return new Promise((resolve) => setTimeout(resolve, DRIVE_HICCUP_RETRY_MS[hiccups++])).then(attempt);
+            }
+            throw notTheSheet("the web app address answered with an error page (HTTP " + response.status + ")");
+          }
+          return response.json().then((data) => data, () => {
+            throw notTheSheet("the web app address answered with a page instead of data — check that it is deployed for “Anyone”");
+          });
         });
-      })
+    };
+    return attempt()
       .then((reply) => {
         over();
         if (!isObj(reply)) throw notTheSheet("the web app sent an unreadable answer");
